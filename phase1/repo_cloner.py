@@ -9,7 +9,7 @@ from threading import Thread, Event
 
 # Pre-configured API keys (replace with your keys or leave blank)
 api_keys = {
-    "github.com": "urkey",
+    "github.com": "ghp_6nPurkey",
     "gitlab.com": "your_gitlab_api_key_here",
     "bitbucket.org": "your_bitbucket_api_key_here"
 }
@@ -37,14 +37,6 @@ class CloneManager:
             import select
             self.select = select
     
-    def spinner(self):
-        while not self.stop_event.is_set():
-            if not self.pause_event.is_set():
-                sys.stdout.write(f"\r[+] Cloning {self.current_repo} {self.spinner_chars[self.spinner_pos]}")
-                sys.stdout.flush()
-                self.spinner_pos = (self.spinner_pos + 1) % len(self.spinner_chars)
-            time.sleep(0.1)
-    
     def check_for_input(self):
         while not self.stop_event.is_set():
             if self.is_windows:
@@ -62,40 +54,55 @@ class CloneManager:
                     pass
             time.sleep(0.1)
     
+    def spinner(self):
+        while not self.stop_event.is_set():
+            if not self.pause_event.is_set():
+                sys.stdout.write(f"\r[+] Cloning {self.current_repo} {self.spinner_chars[self.spinner_pos]}")
+                sys.stdout.flush()
+                self.spinner_pos = (self.spinner_pos + 1) % len(self.spinner_chars)
+            time.sleep(0.1)
+    
     def toggle_pause(self):
         if self.pause_event.is_set():
-            print("\n[▶] Resuming...")
+            sys.stdout.write("\r\033[K")  # Clear line
+            print("\n\033[92m[▶]\033[0m Resuming...")  # Green
             self.pause_event.clear()
         else:
-            print(f"\n[⏸] Paused on: {self.current_repo}")
-            print("[▶] Press Enter to resume | [⏩] Type 's' + Enter to skip")
+            sys.stdout.write("\r\033[K")  # Clear Git output
+            print(f"\n\033[93m[⏸]\033[0m \033[1mPAUSED on:\033[0m {self.current_repo}")
+            print("\033[91m[⏩] PRESS: Enter=Resume | 's'+Enter=Skip\033[0m")
             self.pause_event.set()
+            time.sleep(1)  # Ensure prompt visibility
             self.wait_for_skip_or_resume()
 
     def wait_for_skip_or_resume(self):
-        while self.pause_event.is_set() and not self.stop_event.is_set():
+        while self.pause_event.is_set():
             if self.is_windows:
                 if self.msvcrt.kbhit():
-                    key = self.msvcrt.getch().decode('utf-8', errors='ignore').lower()
+                    key = self.msvcrt.getch().decode().lower()
                     if key == '\r':
-                        print("[▶] Resuming...")
+                        sys.stdout.write("\r\033[K")
+                        print("\033[92m[▶] Resuming...\033[0m")
                         self.pause_event.clear()
                     elif key == 's':
-                        print(f"[⏩] Skipped: {self.current_repo}")
+                        sys.stdout.write("\r\033[K")
+                        print(f"\033[91m[⏩] SKIPPED: {self.current_repo}\033[0m")
                         self.stop_event.set()
             else:
                 try:
-                    rlist, _, _ = self.select.select([sys.stdin], [], [], 0.1)
-                    if rlist:
-                        user_input = sys.stdin.readline().strip().lower()
-                        if user_input == 's':
-                            print(f"[⏩] Skipped: {self.current_repo}")
+                    if self.select.select([sys.stdin], [], [], 0.1)[0]:
+                        cmd = sys.stdin.readline().strip().lower()
+                        if cmd == 's':
+                            sys.stdout.write("\r\033[K")
+                            print(f"\033[91m[⏩] SKIPPED: {self.current_repo}\033[0m")
                             self.stop_event.set()
                         else:
-                            print("[▶] Resuming...")
+                            sys.stdout.write("\r\033[K")
+                            print("\033[92m[▶] Resuming...\033[0m")
                             self.pause_event.clear()
                 except:
                     pass
+            time.sleep(0.1)
 
 def clone_repos(platform, org, folder_name, api_key=None):
     manager = CloneManager()
