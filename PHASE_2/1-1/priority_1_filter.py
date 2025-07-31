@@ -1,3 +1,4 @@
+#بسم الله الرحمن الرحيم
 import os
 import re
 import shutil
@@ -115,6 +116,8 @@ with open(os.path.join(base_dir, 'historical.txt'), 'a') as hist_file:
                                 for match in matches:
                                     out_file.write(f'{match}\n')  # Clean output
                                     hist_file.write(f'{repo_name}:{file}:{match}\n')  # Historical log with true repo
+
+            #الحمد لله رب العالمين
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
 
