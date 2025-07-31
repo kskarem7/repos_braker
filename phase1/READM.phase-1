@@ -1,0 +1,76 @@
+GitHub Repo Cloner - Phase 1
+A Python script to clone repositories from GitHub, GitLab, or Bitbucket organizations, sorting them into public/ and archived/ folders. Supports pausing on Enter keypress, saves API keys for reuse, and outputs to a clean folder structure. Integrates with Phase 2.1.1 for scanning.
+Features
+
+Clones Repos: Fetches and clones repos from a specified organization on GitHub, GitLab, or Bitbucket.
+Organizes Output: Saves public repos to base_folder/platform_folder/phase_1-platform_repos/public/ and archived repos to archived/.
+Pause on Enter: Press Enter during cloning to pause; press Enter again to resume. No keypress, no pause.
+API Key Management: Saves API keys to platform_token.txt in the base folder for reuse.
+Loading Animation: Shows ../ after each clone for a slick loading effect.
+Error Handling: Handles invalid keys, rate limits, and missing organizations.
+
+Folder Structure
+base_folder/
+├── github.com_test/                    # e.g., github.com_test
+│   └── phase_1-github.com_repos/      # Cloned repos
+│       ├── public/                    # Public repos
+│       │   ├── aiven-metrics-forwarder/
+│       │   └── demo-opensearch-python/
+│       └── archived/                  # Archived repos
+└── github.com_token.txt               # Saved API token
+
+Installation
+
+Clone this repo:git clone https://github.com/yourusername/your-repo.git
+cd your-repo/phases/PHASE1
+
+
+Ensure Python 3.8+ and git are installed.
+Install dependencies:pip install requests
+
+
+
+Usage
+
+Run the script:python phase1_cloner.py
+
+
+Enter a folder name (e.g., test).
+Enter the org URL (e.g., github.com/apache).
+If no saved API key, enter one or press Enter for public repos only.
+Press Enter during cloning to pause, and Enter again to resume.
+Check base_folder/platform_folder/phase_1-platform_repos/ for cloned repos.
+
+Example
+$ python phase1_cloner.py
+Enter folder name (e.g., karim): test
+Enter URL (e.g., github.com/orgname): github.com/x-Open
+[+] Cloned x-metrics-forwarder ../
+[+] Cloned demo-opensearch-python ../
+[Enter pressed]
+Paused. Press Enter to resume...
+[+] Cloned mastodon-to-kafka ../
+
+Requirements
+
+Python 3.8+
+Modules: requests, os, subprocess, json, time, select (built-in)
+Git installed and in PATH
+GitHub Personal Access Token (optional, for private repos)
+
+Notes
+
+Generate a GitHub PAT at https://github.com/settings/tokens with repo scope for private repos.
+API keys are saved to platform_token.txt in the base folder.
+Public repos don’t require a key but are limited by API rate limits (60 requests/hour).
+The select module is used for non-blocking Enter detection (Windows-compatible).
+
+Next Steps
+
+Use with Phase 2.1.1 to scan cloned repos for priority files and URLs.
+Add support for bulk org cloning or more platforms.
+
+Contributing
+Pull requests welcome! Open issues for bugs or feature requests.
+License
+MIT License
