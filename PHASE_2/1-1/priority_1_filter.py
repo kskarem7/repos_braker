@@ -1,210 +1,118 @@
-# بسم الله الرحمن الرحيم
 import os
-import subprocess
-import requests
-import sys
-import time
-import platform
-from threading import Thread, Event
+import re
+import shutil
 
-# Pre-configured API keys (replace with your keys or leave blank)
-api_keys = {
-    "github.com": "urkey",
-    "gitlab.com": "your_gitlab_api_key_here",
-    "bitbucket.org": "your_bitbucket_api_key_here"
+# Private filters for priority files
+private_filters = {
+    'p1_1': re.compile(r'^(\.github/workflows/.*\.ya?ml|\.gitlab-ci\.ya?ml|\.travis\.ya?ml|bitbucket-pipelines\.ya?ml|buildspec\.ya?ml|\.circleci/config\.ya?ml|Jenkinsfile|azure-pipelines\.ya?ml)$'),
+    'p1_2': re.compile(r'.*(gitlab|travis|bitbucket|circleci|jenkins|azure|workflow|pipeline|ci|cd|deploy|build).*\.(ya?ml|json)$'),
+    'p1_3': re.compile(r'.*\.(yml|yaml|sh)$')
 }
 
-# Platform config (unchanged from your original)
-platforms = {
-    "github.com": {"api": "https://api.github.com/orgs/{org}/repos", "clone_prefix": "https://github.com/"},
-    "gitlab.com": {"api": "https://gitlab.com/api/v4/groups/{org}/projects", "clone_prefix": "https://gitlab.com/"},
-    "bitbucket.org": {"api": "https://api.bitbucket.org/2.0/teams/{org}/repositories", "clone_prefix": "https://bitbucket.org/"}
+# Public regex patterns
+public_patterns = {
+    'urls': re.compile(r'https?://\S+'),  # Any URL
+    'github': re.compile(r'github\.com/[a-zA-Z0-9-]+/[a-zA-Z0-9-]+[^/\s]*'),  # GitHub repos
+    'github_io': re.compile(r'https?://[a-zA-Z0-9-]+\.github\.io(?:/[^\s]*)?')  # GitHub.io with optional path
 }
 
-class CloneManager:
-    def __init__(self):
-        self.pause_event = Event()
-        self.stop_event = Event()
-        self.current_repo = ""
-        self.spinner_chars = ['..', '\\', '|', '/']
-        self.spinner_pos = 0
-        self.is_windows = sys.platform == "win32"
-        
-        if self.is_windows:
-            import msvcrt
-            self.msvcrt = msvcrt
-        else:
-            import select
-            self.select = select
-    
-    def spinner(self):
-        while not self.stop_event.is_set():
-            if not self.pause_event.is_set():
-                sys.stdout.write(f"\r[+] Cloning {self.current_repo} {self.spinner_chars[self.spinner_pos]}")
-                sys.stdout.flush()
-                self.spinner_pos = (self.spinner_pos + 1) % len(self.spinner_chars)
-            time.sleep(0.1)
-    
-    def check_for_input(self):
-        while not self.stop_event.is_set():
-            if self.is_windows:
-                if self.msvcrt.kbhit():
-                    key = self.msvcrt.getch().decode('utf-8', errors='ignore')
-                    if key == '\r':  # Enter key
-                        self.toggle_pause()
-            else:
-                try:
-                    rlist, _, _ = self.select.select([sys.stdin], [], [], 0.1)
-                    if rlist:
-                        input()  # Clear the buffer
-                        self.toggle_pause()
-                except:
-                    pass
-            time.sleep(0.1)
-    
-    def toggle_pause(self):
-        if self.pause_event.is_set():
-            print("\n[▶] Resuming...")
-            self.pause_event.clear()
-        else:
-            print(f"\n[⏸] Paused on: {self.current_repo}")
-            print("[▶] Press Enter to resume | [⏩] Type 's' + Enter to skip")
-            self.pause_event.set()
-            self.wait_for_skip_or_resume()
+# Get user input for folder name
+base_dir = input("Enter folder name (e.g., github.com_projectrepo): ").strip()
+public_dir = os.path.join(os.getcwd(), base_dir, 'phase_1-github.com_repos', 'public')
+priority_dir = os.path.join(os.getcwd(), base_dir, 'priority_1', 'p1_repos')
+output_dirs = {
+    'p1_1': os.path.join(os.getcwd(), base_dir, 'priority_1', 'p1_1_exact_filenames'),
+    'p1_2': os.path.join(os.getcwd(), base_dir, 'priority_1', 'p1_2_general_filenames'),
+    'p1_3': os.path.join(os.getcwd(), base_dir, 'priority_1', 'p1_3_yml_sh_yaml')
+}
 
-    def wait_for_skip_or_resume(self):
-        while self.pause_event.is_set() and not self.stop_event.is_set():
-            if self.is_windows:
-                if self.msvcrt.kbhit():
-                    key = self.msvcrt.getch().decode('utf-8', errors='ignore').lower()
-                    if key == '\r':
-                        print("[▶] Resuming...")
-                        self.pause_event.clear()
-                    elif key == 's':
-                        print(f"[⏩] Skipped: {self.current_repo}")
-                        self.stop_event.set()
-            else:
-                try:
-                    rlist, _, _ = self.select.select([sys.stdin], [], [], 0.1)
-                    if rlist:
-                        user_input = sys.stdin.readline().strip().lower()
-                        if user_input == 's':
-                            print(f"[⏩] Skipped: {self.current_repo}")
-                            self.stop_event.set()
-                        else:
-                            print("[▶] Resuming...")
-                            self.pause_event.clear()
-                except:
-                    pass
+# Ensure output directories exist
+for dir_path in [priority_dir] + list(output_dirs.values()):
+    os.makedirs(dir_path, exist_ok=True)
 
-def clone_repos(platform, org, folder_name, api_key=None):
-    manager = CloneManager()
-    input_thread = Thread(target=manager.check_for_input)
-    spinner_thread = Thread(target=manager.spinner)
-    
-    input_thread.daemon = True
-    spinner_thread.daemon = True
-    input_thread.start()
-    spinner_thread.start()
+# Step 1: Scan public/ for priority files
+public_files = []
+for root, _, files in os.walk(public_dir):
+    for file in files:
+        file_path = os.path.join(root, file)
+        relative_path = os.path.relpath(file_path, public_dir)
+        for pattern in private_filters.values():
+            if pattern.search(relative_path):
+                public_files.append(file_path)
+                break
 
-    try:
-        api_url = platforms[platform]["api"].format(org=org)
-        clone_prefix = platforms[platform]["clone_prefix"]
-        base_dir = f"{platform}_{folder_name}"
-        public_dir = os.path.join(base_dir, f"phase_1-{platform}_repos", "public").replace(":", "-")
-        archived_dir = os.path.join(base_dir, f"phase_1-{platform}_repos", "archived").replace(":", "-")
+# Step 2: Check if p1_repos exists and decide action
+new_files_moved = False
+default_repo = 'default_repo'
+target_dir = os.path.join(priority_dir, default_repo)
+os.makedirs(target_dir, exist_ok=True)
 
-        os.makedirs(public_dir, exist_ok=True)
-        os.makedirs(archived_dir, exist_ok=True)
+# Check if p1_repos exists and has files
+p1_files = []
+for root, _, files in os.walk(priority_dir):
+    for file in files:
+        p1_files.append(file)
 
-        headers = {"Accept": "application/json"}
-        if api_key:
-            if platform == "github.com":
-                headers["Authorization"] = f"token {api_key}"
-            elif platform == "gitlab.com":
-                headers["PRIVATE-TOKEN"] = api_key
-            elif platform == "bitbucket.org":
-                headers["Authorization"] = f"Bearer {api_key}"
+if os.path.exists(priority_dir) and p1_files and public_files:
+    # Prompt only if p1_repos has files and public has more to move
+    choice = input(f"Found {len(public_files)} priority files in public/. Rescan and move (m) or skip to regex (r)? ").lower()
+    if choice == 'm':
+        new_files_moved = True
+        # Clear output files only if rescanning
+        for output_dir in output_dirs.values():
+            for file in ['urls.txt', 'github.txt', 'github_io.txt']:
+                file_path = os.path.join(output_dir, file)
+                if os.path.exists(file_path):
+                    open(file_path, 'w').close()  # Clear file
+        hist_file_path = os.path.join(os.getcwd(), base_dir, 'historical.txt')
+        if os.path.exists(hist_file_path):
+            open(hist_file_path, 'w').close()  # Clear historical
+else:
+    new_files_moved = True  # No p1_repos or empty, move files
+    # Clear output files for fresh run
+    for output_dir in output_dirs.values():
+        for file in ['urls.txt', 'github.txt', 'github_io.txt']:
+            file_path = os.path.join(output_dir, file)
+            if os.path.exists(file_path):
+                open(file_path, 'w').close()  # Clear file
+    hist_file_path = os.path.join(os.getcwd(), base_dir, 'historical.txt')
+    if os.path.exists(hist_file_path):
+        open(hist_file_path, 'w').close()  # Clear historical
 
-        params = {"per_page": 100, "archived": "true"}
-        if not api_key and platform in ["github.com", "gitlab.com"]:
-            params["visibility"] = "public"
+# Step 3: Move priority files if needed
+if new_files_moved:
+    for file_path in public_files:
+        shutil.move(file_path, os.path.join(target_dir, os.path.basename(file_path)))
 
-        response = requests.get(api_url, headers=headers, params=params, timeout=10)
-        response.raise_for_status()
-        repos = response.json()
-
-        if isinstance(repos, dict):
-            repos = [repos] if platform == "github.com" else repos.get("projects", repos.get("values", []))
-
-        for repo in repos:
-            if manager.stop_event.is_set():
-                manager.stop_event.clear()
-                continue
-
-            repo_name = repo.get("name")
-            manager.current_repo = repo_name
-            repo_url = f"{clone_prefix}{org}/{repo_name}.git"
-            clone_path = os.path.join(archived_dir if repo.get("archived", False) else public_dir, repo_name)
-
-            # Skip if already cloned (checks folder existence)
-            if os.path.exists(clone_path):
-                print(f"\r[=] Skipped: {repo_name} (already exists)", " " * 20)
-                continue
-
+# Step 4: Scan moved files for patterns
+with open(os.path.join(os.getcwd(), base_dir, 'historical.txt'), 'a') as hist_file:
+    for root, _, files in os.walk(priority_dir):
+        repo_name = os.path.basename(root)
+        for file in files:
+            file_path = os.path.join(root, file)
             try:
-                subprocess.run(
-                    ["git", "clone", "--quiet", repo_url, clone_path],
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-                print(f"\r[✓] Cloned: {repo_name} ../", " " * 20)
-            except subprocess.CalledProcessError:
-                print(f"\r[✗] Failed: {repo_name} (retrying...)", " " * 20)
-                for _ in range(2):  # 2 retries
-                    time.sleep(2)
-                    try:
-                        subprocess.run(
-                            ["git", "clone", "--quiet", repo_url, clone_path],
-                            check=True,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL
-                        )
-                        print(f"\r[✓] Cloned: {repo_name} ../", " " * 20)
-                        break
-                    except:
-                        pass
-                else:
-                    print(f"\r[✗] Skipped: {repo_name} (too many retries)", " " * 20)
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    # Determine filter type
+                    filter_type = None
+                    relative_path = os.path.relpath(file_path, priority_dir)
+                    for filter_name, pattern in private_filters.items():
+                        if pattern.search(os.path.join(repo_name, relative_path)):
+                            filter_type = filter_name
+                            break
+                    if not filter_type:
+                        continue
 
-    except Exception as e:
-        print(f"\n[!] Critical Error: {e}")
-    finally:
-        manager.stop_event.set()
-        input_thread.join()
-        spinner_thread.join()
-        print("\n[✔] Cloning completed.")
+                    # Apply public regex
+                    output_dir = output_dirs[filter_type]
+                    for category, pattern in public_patterns.items():
+                        matches = pattern.findall(content)
+                        if matches:
+                            with open(os.path.join(output_dir, f'{category}.txt'), 'a') as out_file:
+                                for match in matches:
+                                    out_file.write(f'{match}\n')  # Clean output
+                                    hist_file.write(f'{repo_name}:{file}:{match}\n')  # Historical log with true repo
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
 
-def main():
-    print("Repository Cloner | Press Enter to pause/resume | 's' to skip")
-    print("------------------------------------------------------------")
-    
-    folder_name = input("Folder name (e.g., sophos2): ").strip()
-    url = input("URL (e.g., github.com/sophos): ").strip().replace("https://", "").replace("http://", "").strip("/")
-
-    parts = url.split("/")
-    if len(parts) < 2:
-        print("[✗] Invalid URL. Use: github.com/orgname")
-        return
-
-    platform, org = parts[0], parts[1]
-    if platform not in platforms:
-        print(f"[✗] Unsupported platform. Use: {list(platforms.keys())}")
-        return
-
-    clone_repos(platform, org, folder_name, api_keys.get(platform))
-
-if __name__ == "__main__":
-    main()
-# الحمد لله رب العالمين
+print("Scanning complete. Check 'priority_1' inside your folder for results and 'historical.txt' for logs.")
