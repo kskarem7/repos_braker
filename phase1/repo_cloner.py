@@ -6,7 +6,7 @@ import requests
 
 # Pre-configured API keys (replace with your keys or leave blank)
 api_keys = {
-    "github.com": "YOUR_KEY_HERE",
+    "github.com": "youkey",
     "gitlab.com": "your_gitlab_api_key_here",
     "bitbucket.org": "your_bitbucket_api_key_here"
 }
