@@ -1,0 +1,89 @@
+Update and rename priority_1_filter to priority_1_filter.py
+GitHub Repo Crawler - Phase 2.1.1
+A Python script to scan GitHub repositories, move priority files (CI/CD configs, scripts) to a centralized folder, and extract URLs (e.g., github.io, github.com repos) into categorized output files. Logs findings with repo names in a historical log. Designed for simplicity and extensibility, inspired by tools like github-scanner-local.
+Features
+
+Scans Repos: Checks public/ folder for priority files (e.g., .yml, .sh) using regex filters.
+Moves Files: Relocates matching files to priority_1/p1_repos/default_repo/ inside the user-specified folder.
+Extracts URLs: Finds URLs, GitHub repos, and GitHub.io links, saving them to urls.txt, github.txt, and github_io.txt.
+Historical Log: Records matches in historical.txt with repo names (e.g., repo1:travis.yml:https://1343x.com).
+Rerun Handling: If p1_repos exists but misses files, prompts to rescan or skip to regex extraction.
+
+Folder Structure
+base_folder/
+└── github.com_projectrepo/                # User-specified folder
+    ├── phase_1-github.com_repos/public/   # Input repos
+    │   ├── repo1/travis.yml
+    │   └── repo2/xx.sh
+    ├── priority_1/                       # Output folder
+    │   ├── p1_repos/default_repo/        # Moved priority files
+    │   ├── p1_1_exact_filenames/         # P1/1 matches (e.g., urls.txt)
+    │   ├── p1_2_general_filenames/       # P1/2 matches
+    │   └── p1_3_yml_sh_yaml/            # P1/3 matches
+    └── historical.txt                    # Log of all matches
+
+Installation
+
+Clone this repo:git clone https://github.com/yourusername/your-repo.git
+cd your-repo
+
+
+Ensure Python 3.8+ is installed.
+Place your cloned repos in base_folder/your_folder/phase_1-github.com_repos/public/.
+
+Usage
+
+Run the script:python phase_2_1_1.py
+
+
+Enter the folder name (e.g., github.com_projectrepo).
+If p1_repos exists with missing files, choose:
+m: Rescan and move files.
+r: Skip to regex extraction.
+
+
+Check outputs in priority_1/ and historical.txt.
+
+Example
+Input Files (in public/repo1/):
+
+travis.yml:name: CI
+env:
+  MY_URL: https://1343x.com
+  GITHUB_IO: https://wewe33.github.io/project
+
+
+xx.sh:#!/bin/bash
+curl https://x22-api.com/v1
+echo "Repo: github.com/resss33/myapp545454"
+
+
+
+Output:
+
+Files move to priority_1/p1_repos/default_repo/.
+p1_1_exact_filenames/urls.txt: https://1343x.com, https://wewe33.github.io/project.
+p1_3_yml_sh_yaml/urls.txt: https://x22-api.com/v1.
+p1_3_yml_sh_yaml/github.txt: github.com/resss33/myapp545454.
+historical.txt:repo1:travis.yml:https://1343x.com
+repo1:travis.yml:https://wewe33.github.io/project
+repo1:xx.sh:https://x22-api.com/v1
+repo1:xx.sh:github.com/resss33/myapp545454
+
+
+
+Requirements
+
+Python 3.8+
+Modules: os, re, shutil (built-in)
+
+Next Steps
+
+Refine public regex for more specific URL patterns (e.g., npmjs.com).
+Add support for additional file types or filters.
+Optimize for large repo sets.
+
+Contributing
+Pull requests welcome! Open issues for bugs or feature requests.
+License
+MIT License
