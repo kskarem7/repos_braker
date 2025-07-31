@@ -1,76 +1,70 @@
-GitHub Repo Cloner - Phase 1
-A Python script to clone repositories from GitHub, GitLab, or Bitbucket organizations, sorting them into public/ and archived/ folders. Supports pausing on Enter keypress, saves API keys for reuse, and outputs to a clean folder structure. Integrates with Phase 2.1.1 for scanning.
-Features
 
-Clones Repos: Fetches and clones repos from a specified organization on GitHub, GitLab, or Bitbucket.
-Organizes Output: Saves public repos to base_folder/platform_folder/phase_1-platform_repos/public/ and archived repos to archived/.
-Pause on Enter: Press Enter during cloning to pause; press Enter again to resume. No keypress, no pause.
-API Key Management: Saves API keys to platform_token.txt in the base folder for reuse.
-Loading Animation: Shows ../ after each clone for a slick loading effect.
-Error Handling: Handles invalid keys, rate limits, and missing organizations.
+```markdown
+# Advanced Repository Cloner
 
-Folder Structure
-base_folder/
-├── github.com_test/                    # e.g., github.com_test
-│   └── phase_1-github.com_repos/      # Cloned repos
-│       ├── public/                    # Public repos
-│       │   ├── aiven-metrics-forwarder/
-│       │   └── demo-opensearch-python/
-│       └── archived/                  # Archived repos
-└── github.com_token.txt               # Saved API token
+A cross-platform tool to clone all repositories from GitHub/GitLab/Bitbucket organizations with smart filtering and pause/resume controls.
 
-Installation
+## Features
 
-Clone this repo:git clone https://github.com/yourusername/your-repo.git
-cd your-repo/phases/PHASE1
+- ✅ **Auto-skip existing repos** - Never re-clones duplicates
+- 🔄 **Spinner animation** - Visual feedback during cloning (`../`, `..\`, etc.)
+- ⏯️ **Pause/Resume** - Press `Enter` anytime to pause
+- ⏩ **Skip repos** - Press `s` while paused to skip current repo
+- 🌐 **Cross-platform** - Works on Windows (CMD/PowerShell) and Linux/Mac
+- 🔍 **Fork detection** - Optionally exclude forked repositories
+- 🎨 **Colorized output** - Clear status indicators (enable ANSI in CMD)
 
+## Installation
 
-Ensure Python 3.8+ and git are installed.
-Install dependencies:pip install requests
+```bash
+pip install requests
+```
 
+## Usage
 
+### Basic Scan (Skips Forks)
+```bash
+python cloner.py github.com/sophos
+```
 
-Usage
+### Deep Scan (Includes Forks)
+```bash
+python cloner.py --scan-forks github.com/sophos
+```
 
-Run the script:python phase1_cloner.py
+### Windows CMD Setup (For Colors)
+```cmd
+reg add HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1
+```
+Restart your terminal after running this.
 
+## Controls
+| Action               | Command          |
+|----------------------|------------------|
+| Pause cloning        | Press `Enter`    |
+| Resume cloning       | Press `Enter`    |
+| Skip current repo    | Press `s` then `Enter` |
 
-Enter a folder name (e.g., test).
-Enter the org URL (e.g., github.com/apache).
-If no saved API key, enter one or press Enter for public repos only.
-Press Enter during cloning to pause, and Enter again to resume.
-Check base_folder/platform_folder/phase_1-platform_repos/ for cloned repos.
+## Output Examples
+```text
+[✓] Cloned: awesome-repo ../
+[=] Skipped: duplicate-repo (exists)
+[✗] Skipped: broken-repo (max retries)
+[⏸] PAUSED on: large-repo
+[⏩] SKIPPED: large-repo
+```
 
-Example
-$ python phase1_cloner.py
-Enter folder name (e.g., karim): test
-Enter URL (e.g., github.com/orgname): github.com/x-Open
-[+] Cloned x-metrics-forwarder ../
-[+] Cloned demo-opensearch-python ../
-[Enter pressed]
-Paused. Press Enter to resume...
-[+] Cloned mastodon-to-kafka ../
+## Configuration
+Edit `api_keys` in the script to add your personal access tokens for private repos.
 
-Requirements
+**Note:** For large organizations, consider using `--scan-forks` only when needed as it significantly increases scan time.
+```
 
-Python 3.8+
-Modules: requests, os, subprocess, json, time, select (built-in)
-Git installed and in PATH
-GitHub Personal Access Token (optional, for private repos)
+Key points:
+1. Clear feature list with emoji visual cues
+2. Windows-specific color setup instructions
+3. Compact command reference table
+4. Real output examples
+5. Configuration note at the bottom
 
-Notes
-
-Generate a GitHub PAT at https://github.com/settings/tokens with repo scope for private repos.
-API keys are saved to platform_token.txt in the base folder.
-Public repos don’t require a key but are limited by API rate limits (60 requests/hour).
-The select module is used for non-blocking Enter detection (Windows-compatible).
-
-Next Steps
-
-Use with Phase 2.1.1 to scan cloned repos for priority files and URLs.
-Add support for bulk org cloning or more platforms.
-
-Contributing
-Pull requests welcome! Open issues for bugs or feature requests.
-License
-MIT License
+Would you like me to add any specific troubleshooting steps or advanced usage examples?
