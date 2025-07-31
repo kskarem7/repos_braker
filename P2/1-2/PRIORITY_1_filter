@@ -1,0 +1,26 @@
+base_folder/                  # Where the tool runs
+├── github.com_projectrepo/   # User-input folder
+│   ├── phase_1-github.com_repos/
+│   │   ├── public/          # Scanned for priority files
+│   │   │   ├── repo1/
+│   │   │   └── repo2/
+│   │   └── archived/        # Ignored
+├── priority_1/              # All priority-related output
+│   ├── p1_repos/            # Moved priority files
+│   │   ├── repo1/
+│   │   │   ├── .github/workflows/build.yml
+│   │   │   └── deploy-script.sh
+│   │   └── repo2/
+│   │       ├── .travis.yml
+│   │       └── pipeline.yml
+│   ├── p1_1_exact_filenames/ # Findings from P1/1 files
+│   │   ├── urls.txt         # https://example.com
+│   │   └── github.txt       # github.com/user/repo
+│   ├── p1_2_general_filenames/ # Findings from P1/2 files
+│   │   ├── urls.txt         # https://deploy.com
+│   │   └── github.txt       # (empty)
+│   └── p1_3_yml_sh_yaml/    # Findings from P1/3 files
+│       ├── urls.txt         # http://s3.amazonaws.com/bucket
+│       └── github.txt       # (empty)
+└── historical.txt           # Historical log (outside priority_1)
+                            # repo1:.github/workflows/build.yml:https://example.com
