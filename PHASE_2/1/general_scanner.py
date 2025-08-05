@@ -92,9 +92,8 @@ def is_valid_secret(pattern_name, secret):
 public_patterns = {
     # GitHub Patterns
     "github_repos": re.compile(r"(?:https?://|git@|git://|git\+https://)github\.com[/:]([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?"),
-    "github_pages_current": re.compile(r"([a-zA-Z0-9-]+\.github\.io)(?:/|$)"),
+    "github_pages_current": re.compile(r"([a-zA-Z0-9-]+\.github\.io(?:/[a-zA-Z0-9-]+)?)(?:/|$|[^\s)\]\'\";>])"),  
     "github_pages_deprecated": re.compile(r"([a-zA-Z0-9-]+\.github\.com)(?:/|$)"),
-    "github_io_suspicious": re.compile(r"(github\.io/[a-zA-Z0-9-]+)(?:/|$)"),
     "npm_github_urls": re.compile(r"git\+https://github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?"),
     
     # Cloud/Hosting Patterns
@@ -122,17 +121,30 @@ public_patterns = {
     "composer": re.compile(r"(packagist\.org/packages/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)(?:/|$)"),
     
     # Secrets
-    "aws_keys": re.compile(r"\b(AKIA[0-9A-Z]{16})\b"),
-    "github_tokens": re.compile(r"\b(ghp_[0-9a-zA-Z]{36})\b"),
-    "github_oauth": re.compile(r"\b(gho_[0-9a-zA-Z]{36})\b"),
-    "stripe_keys": re.compile(r"\b(sk_live_[0-9a-zA-Z]{24})\b"),
-    "google_api": re.compile(r"\b(AIza[0-9A-Za-z-_]{35})\b"),
-    "twilio_keys": re.compile(r"\b(SK[0-9a-fA-F]{32})\b"),
-    "slack_tokens": re.compile(r"\b(xox[baprs]-[0-9a-zA-Z]{10,48})\b"),
-    "bearer_tokens": re.compile(r"bearer\s+([a-zA-Z0-9_\-\.=:_\+\/]{20,60})"),
-    "api_keys": re.compile(r"(?i)\bapi[_-]?key[\s:=]+['\"]?([0-9a-zA-Z\-_.]{20,60})['\"]?"),
-    "secrets": re.compile(r"(?i)\b(secret|token)[\s:=]+['\"]?([0-9a-zA-Z\-_.]{20,60})['\"]?"),
-    "passwords": re.compile(r"(?i)\b(password|pwd|pass)[\s:=]+['\"]?([0-9a-zA-Z!@#$%^&*()\-+={}\[\]|:;\"'<>,.?/~`]{12,30})['\"]?"),
+    "aws_access_key": re.compile(r"\b(AKIA|AIDA|AROA|ASIA)[A-Z0-9]{16}\b"),
+    "aws_secret_key": re.compile(r"(?i)\b(aws_secret_access_key|aws_secret)\s*[:=]\s*['\"]?([a-zA-Z0-9/+]{40})['\"]?"),
+    "aws_session_token": re.compile(r"\b(AQo|ASIA)[A-Za-z0-9/+]{200,400}\b"),
+    "github_tokens": re.compile(r"\bgh(p|u|o|s|r|pat)_[a-zA-Z0-9]{36}\b"),
+    "stripe_keys": re.compile(r"\b(sk|pk)_(live|test)_[a-zA-Z0-9]{24}\b"),
+    "paypal_tokens": re.compile(r"\b(access_token\$production\$[a-z0-9]{16}\$[a-f0-9]{32})\b"),
+    "google_api": re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b"),
+    "azure_key": re.compile(r"(?i)\b(accountkey|storagekey)\s*[:=]\s*['\"]?([a-zA-Z0-9+/]{44}={0,2})['\"]?"),
+    "gcp_service_account": re.compile(r'"type"\s*:\s*"service_account".*?"private_key"\s*:\s*"-----BEGIN PRIVATE KEY-----', re.DOTALL),
+    "twilio_keys": re.compile(r"\b(SK|AC)[a-fA-F0-9]{32}\b"),
+    "slack_tokens": re.compile(r"\b(xox[baprs]-[a-zA-Z0-9-]{10,48})\b"),
+    "slack_webhook": re.compile(r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]{8}/B[a-zA-Z0-9_]{8}/[a-zA-Z0-9_]{24}"),
+    "bearer_token": re.compile(r"bearer\s+[a-zA-Z0-9_\-\.=:/+]{20,800}", re.I),
+    "jwt": re.compile(r"\beyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_+/=]*\b"),
+    "oauth_token": re.compile(r"\b(ya29\.[0-9A-Za-z\-_]+|1/[0-9A-Za-z\-_]{43,64})\b"),
+    "api_key": re.compile(r"(?i)(?:^|[^.\w])(api[_-]?key|secret|token|credential|auth)[\s:=]+['\"]?([a-zA-Z0-9\-_=+/.]{20,100})['\"]?(?:\s|$)"),
+    "password": re.compile(r"(?i)\b(pass(word|wd)?|pwd)[\s:=]+['\"]?([^\s]{8,})['\"]?"),
+    "private_key": re.compile(r"-----BEGIN (RSA|EC|DSA|OPENSSH|PGP) PRIVATE KEY-----(?s:.+?)-----END"),
+    "ssh_key": re.compile(r"ssh-(rsa|dss|ed25519) [A-Za-z0-9+/]+[=]{0,3}"),
+    "mailgun_key": re.compile(r"\b(key-[0-9a-f]{32}|[0-9a-f]{32}-[0-9a-f]{8}-[0-9a-f]{8})\b"),
+    "heroku_key": re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"),
+    "npm_token": re.compile(r"\bnpm_[a-zA-Z0-9]{36}\b"),
+    "postgres_uri": re.compile(r"postgres(?:ql)?://[a-zA-Z0-9_%\-]+:[^@\s]+@[a-zA-Z0-9.-]+(?::\d+)?/[^?\s]+"),
+
     
     # Generic URLs (Captures full URLs for historical, base domain for output)
     "generic_urls": re.compile(r"(https?://(?!localhost|127\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|::1)[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+[^\s)\]\'\";>]+)")
@@ -175,15 +187,13 @@ def is_valid_url(url):
     except:
         return False
 
-# ... existing code ...
-
 # --- File Scanning Function ---
 def scan_files(source_dir, source_type):
-    secret_patterns = [
-        "aws_keys", "github_tokens", "github_oauth", "stripe_keys", 
-        "google_api", "twilio_keys", "slack_tokens", "bearer_tokens", 
-        "api_keys", "secrets", "passwords"
-    ]
+    secret_patterns = ["aws_access_key", "aws_secret_key", "aws_session_token", "github_tokens", "stripe_keys", 
+"paypal_tokens", "google_api", "azure_key", "gcp_service_account", "twilio_keys", 
+"slack_tokens", "slack_webhook", "bearer_token", "jwt", "oauth_token", "api_key", 
+"password", "private_key", "ssh_key", "mailgun_key", "heroku_key", "npm_token", 
+"mongo_uri", "postgres_uri"]
     with open(hist_file_path, 'a') as hist_file, open(errors_file, 'a') as err_file:
         for root, _, files in os.walk(source_dir):
             repo_name = os.path.basename(root).replace("/", "_")
@@ -207,8 +217,7 @@ def scan_files(source_dir, source_type):
                                               "netlify", "firebase"]:
                                 subdir = "cloud"
                             elif pattern_name in ["github_repos", "npm_github_urls", 
-                                                "github_pages_current", "github_pages_deprecated", 
-                                                "github_io_suspicious"]:
+                                                "github_pages_current", "github_pages_deprecated"]:
                                 subdir = "github"
                             elif pattern_name in ["npm", "pypi", "docker", "rubygems", 
                                                 "nuget", "go_modules", "composer"]:
@@ -253,7 +262,7 @@ def scan_files(source_dir, source_type):
                                         continue
                                     
                                     # FIX: Handle GitHub patterns specifically
-                                    if pattern_name in ["github_repos", "npm_github_urls", "github_io_suspicious"]:
+                                    if pattern_name in ["github_repos", "npm_github_urls", "github_pages_current"]:
                                         if output_str not in seen_outputs[output_file]:
                                             seen_outputs[output_file].add(output_str)
                                             out_file.write(f"{output_str}\n")
@@ -269,7 +278,6 @@ def scan_files(source_dir, source_type):
                 except Exception as e:
                     err_file.write(f"Error reading {file_path}: {e}\n")
 
-# ... rest of the code remains unchanged ...
 # --- Step 1: Clear existing output files and historical log ---
 for output_dir in output_dirs.values():
     for subdir in subdirs:
