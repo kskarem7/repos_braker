@@ -42,32 +42,42 @@ def shannon_entropy(text):
 
 # --- Normalization Functions ---
 def normalize_github_url(url):
-    """Extract github.com/user/repo from various GitHub URL formats"""
+    """Extract github.com/username from various GitHub URL formats"""
     patterns = [
-        r"github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)",
-        r"git@github\.com:([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?",
-        r"git://github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?",
-        r"git\+https://github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?"
+        r"github\.com/([a-zA-Z0-9-]+)(?:/.*)?",
+        r"git@github\.com:([a-zA-Z0-9-]+)(?:/.*)?(?:\.git)?",
+        r"git://github\.com/([a-zA-Z0-9-]+)(?:/.*)?(?:\.git)?",
+        r"git\+https://github\.com/([a-zA-Z0-9-]+)(?:/.*)?(?:\.git)?"
     ]
     for pattern in patterns:
-        match = re.search(pattern, url)
+        match = re.search(pattern, url, re.IGNORECASE)
         if match:
-            return f"github.com/{match.group(1)}"
+            username = match.group(1).lower()
+            if username in {'github', 'user', 'dummy', 'dymmy', 'articles'}:
+                return None
+            if len(username) < 2 or not re.match(r'^[a-zA-Z0-9-]+$', username):
+                return None
+            return f"github.com/{username}"
     # Handle github.io by extracting the username
-    if url.startswith("http") and ".github.io" in url:
-        match = re.match(r"https?://([a-zA-Z0-9-]+)\.github\.io(?:/.*)?", url)
+    if url.lower().startswith("http") and ".github.io" in url.lower():
+        match = re.match(r"https?://([a-zA-Z0-9-]+)\.github\.io(?:/.*)?", url, re.IGNORECASE)
         if match:
-            return f"github.com/{match.group(1)}"
-    return url
+            username = match.group(1).lower()
+            if username in {'github', 'user', 'dummy', 'dymmy', 'articles'}:
+                return None
+            if len(username) < 2 or not re.match(r'^[a-zA-Z0-9-]+$', username):
+                return None
+            return f"github.com/{username}"
+    return None
 
 def normalize_url(url):
     """Extract base domain for generic URLs, full path for GitHub"""
-    if 'github.com' in url:
+    if 'github.com' in url.lower() or '.github.io' in url.lower():
         return normalize_github_url(url)
     try:
         parsed = urlparse(url)
         if parsed.netloc:
-            return parsed.netloc.split(':')[0]
+            return parsed.netloc.split(':')[0].lower()
     except:
         pass
     return url
@@ -96,22 +106,21 @@ def is_valid_url(url):
         parsed = urlparse(url)
         if not parsed.scheme or not parsed.netloc:
             return False
-        netloc = parsed.netloc.split(':')[0]
+        netloc = parsed.netloc.split(':')[0].lower()
         if any(netloc.startswith(prefix) for prefix in ("localhost", "127.", "192.168.", "10.", "::1")):
             return False
         excluded_domains = {
             "youtube.com", "google.com", "facebook.com", "twitter.com", "x.com",
             "linkedin.com", "instagram.com", "wikipedia.org", "example.com",
-            "github.com", "github.io", "docs.github.com", "help.github.com",
-            "noreply.github.com", "api.github.com", "raw.githubusercontent.com",
-            "gitlab.io", "surge.sh", "vercel.app", "netlify.app", "firebaseapp.com",
-            "s3.amazonaws.com", "storage.googleapis.com", "digitaloceanspaces.com",
-            "wasabisys.com", "backblazeb2.com", "npmjs.org", "pypi.org", "docker.com",
-            "rubygems.org", "nuget.org", "go.dev", "packagist.org", "herokuapp.com",
-            "allrecipes.com", "postgresql.org", "fedoraproject.org", "apache.org",
-            "js.cloudflare.com", "cdnjs.cloudflare.com", "www.gitignore.io",
-            "intellij-support.jetbrains.com", "pdm-project.org", "abstra.io",
-            "files.pythonhosted.org"
+            "docs.github.com", "help.github.com", "noreply.github.com", "api.github.com",
+            "raw.githubusercontent.com", "gitlab.io", "surge.sh", "vercel.app",
+            "netlify.app", "firebaseapp.com", "s3.amazonaws.com", "storage.googleapis.com",
+            "digitaloceanspaces.com", "wasabisys.com", "backblazeb2.com", "npmjs.org",
+            "pypi.org", "docker.com", "rubygems.org", "nuget.org", "go.dev",
+            "packagist.org", "herokuapp.com", "allrecipes.com", "postgresql.org",
+            "fedoraproject.org", "apache.org", "js.cloudflare.com", "cdnjs.cloudflare.com",
+            "www.gitignore.io", "intellij-support.jetbrains.com", "pdm-project.org",
+            "abstra.io", "files.pythonhosted.org"
         }
         domain_parts = netloc.split('.')
         for i in range(len(domain_parts)):
@@ -128,28 +137,27 @@ def is_valid_url(url):
 
 # --- Enhanced Regex Patterns ---
 public_patterns = {
-    "github_repos": re.compile(r"(?:https?://|git@|git://|git\+https://)github\.com[/:]([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?"),
-    "github_pages_current": re.compile(r"([a-zA-Z0-9-]+\.github\.io(?:/[a-zA-Z0-9-]+)?)(?:/|$|[^\s)\]\'\";>])"),  
-    "github_pages_deprecated": re.compile(r"([a-zA-Z0-9-]+\.github\.com)(?:/|$)"),
-    "npm_github_urls": re.compile(r"git\+https://github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?"),
-    "heroku": re.compile(r"([a-zA-Z0-9-]+\.herokuapp\.com)(?:/|$)"),
-    "gitlab_pages": re.compile(r"([a-zA-Z0-9-]+\.gitlab\.io)(?:/|$)"),
-    "surge_sh": re.compile(r"([a-zA-Z0-9-]+\.surge\.sh)(?:/|$)"),
-    "vercel": re.compile(r"([a-zA-Z0-9-]+\.vercel\.app)(?:/|$)"),
-    "netlify": re.compile(r"([a-zA-Z0-9-]+\.netlify\.(?:app|com))(?:/|$)"),
-    "firebase": re.compile(r"([a-zA-Z0-9-]+\.firebaseapp\.com)(?:/|$)"),
-    "aws_s3": re.compile(r"([a-zA-Z0-9-]+\.s3(?:[.-](?:us|eu|ap|sa|ca|af|me)-[a-z]-\d)?\.amazonaws\.com)(?:/|$)"),
-    "google_storage": re.compile(r"([a-zA-Z0-9-]+\.storage\.googleapis\.com)(?:/|$)"),
-    "digitalocean_spaces": re.compile(r"([a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.digitaloceanspaces\.com)(?:/|$)"),
-    "wasabi": re.compile(r"([a-zA-Z0-9-]+\.s3\.wasabisys\.com)(?:/|$)"),
-    "backblaze": re.compile(r"([a-zA-Z0-9-]+\.s3\.[a-zA-Z0-9-]+\.backblazeb2\.com)(?:/|$)"),
-    "npm": re.compile(r"(registry\.npmjs\.org/[a-zA-Z0-9_-]+)(?:/|$)"),
-    "pypi": re.compile(r"(pypi\.org/project/[a-zA-Z0-9_-]+)(?:/|$)"),
-    "docker": re.compile(r"(hub\.docker\.com/r/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)(?:/|$)"),
-    "rubygems": re.compile(r"(rubygems\.org/gems/[a-zA-Z0-9_-]+)(?:/|$)"),
-    "nuget": re.compile(r"(nuget\.org/packages/[a-zA-Z0-9._-]+)(?:/|$)"),
-    "go_modules": re.compile(r"(pkg\.go\.dev/[a-zA-Z0-9_./-]+)(?:/|$)"),
-    "composer": re.compile(r"(packagist\.org/packages/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)(?:/|$)"),
+    "github_repos": re.compile(r"(?:https?://|git@|git://|git\+https://)github\.com[/:]([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?", re.IGNORECASE),
+    "github_pages_current": re.compile(r"([a-zA-Z0-9-]+\.github\.io(?:/[a-zA-Z0-9-]+)?)(?:/|$|[^\s)\]\'\";>])", re.IGNORECASE),
+    "npm_github_urls": re.compile(r"git\+https://github\.com/([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)(?:\.git)?", re.IGNORECASE),
+    "heroku": re.compile(r"([a-zA-Z0-9-]+\.herokuapp\.com)(?:/|$)", re.IGNORECASE),
+    "gitlab_pages": re.compile(r"([a-zA-Z0-9-]+\.gitlab\.io)(?:/|$)", re.IGNORECASE),
+    "surge_sh": re.compile(r"([a-zA-Z0-9-]+\.surge\.sh)(?:/|$)", re.IGNORECASE),
+    "vercel": re.compile(r"([a-zA-Z0-9-]+\.vercel\.app)(?:/|$)", re.IGNORECASE),
+    "netlify": re.compile(r"([a-zA-Z0-9-]+\.netlify\.(?:app|com))(?:/|$)", re.IGNORECASE),
+    "firebase": re.compile(r"([a-zA-Z0-9-]+\.firebaseapp\.com)(?:/|$)", re.IGNORECASE),
+    "aws_s3": re.compile(r"([a-zA-Z0-9-]+\.s3(?:[.-](?:us|eu|ap|sa|ca|af|me)-[a-z0-9]-\d)?\.amazonaws\.com)(?:/|$)", re.IGNORECASE),
+    "google_storage": re.compile(r"([a-zA-Z0-9-]+\.storage\.googleapis\.com)(?:/|$)", re.IGNORECASE),
+    "digitalocean_spaces": re.compile(r"([a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.digitaloceanspaces\.com)(?:/|$)", re.IGNORECASE),
+    "wasabi": re.compile(r"([a-zA-Z0-9-]+\.s3\.wasabisys\.com)(?:/|$)", re.IGNORECASE),
+    "backblaze": re.compile(r"([a-zA-Z0-9-]+\.s3\.[a-zA-Z0-9-]+\.backblazeb2\.com)(?:/|$)", re.IGNORECASE),
+    "npm": re.compile(r"(registry\.npmjs\.org/[a-zA-Z0-9_-]+)(?:/|$)", re.IGNORECASE),
+    "pypi": re.compile(r"(pypi\.org/project/[a-zA-Z0-9_-]+)(?:/|$)", re.IGNORECASE),
+    "docker": re.compile(r"(hub\.docker\.com/r/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)(?:/|$)", re.IGNORECASE),
+    "rubygems": re.compile(r"(rubygems\.org/gems/[a-zA-Z0-9_-]+)(?:/|$)", re.IGNORECASE),
+    "nuget": re.compile(r"(nuget\.org/packages/[a-zA-Z0-9._-]+)(?:/|$)", re.IGNORECASE),
+    "go_modules": re.compile(r"(pkg\.go\.dev/[a-zA-Z0-9_./-]+)(?:/|$)", re.IGNORECASE),
+    "composer": re.compile(r"(packagist\.org/packages/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)(?:/|$)", re.IGNORECASE),
     "aws_access_key": re.compile(r"\b(AKIA|AIDA|AROA|ASIA)[A-Z0-9]{16}\b"),
     "aws_secret_key": re.compile(r"(?i)\b(aws_secret_access_key|aws_secret)\s*[:=]\s*['\"]?([a-zA-Z0-9/+]{40})['\"]?"),
     "aws_session_token": re.compile(r"\b(AQo|ASIA)[A-Za-z0-9/+]{200,400}\b"),
@@ -173,7 +181,7 @@ public_patterns = {
     "heroku_key": re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"),
     "npm_token": re.compile(r"\bnpm_[a-zA-Z0-9]{36}\b"),
     "postgres_uri": re.compile(r"postgres(?:ql)?://[a-zA-Z0-9_%\-]+:[^@\s]+@[a-zA-Z0-9.-]+(?::\d+)?/[^?\s]+"),
-    "generic_urls": re.compile(r"(https?://(?!localhost|127\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|::1)[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+[^\s)\]\'\";>]+)")
+    "generic_urls": re.compile(r"(https?://(?!localhost|127\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|::1)[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+[^\s)\]\'\";>]+)", re.IGNORECASE)
 }
 
 # --- Optimized Scanner ---
@@ -225,9 +233,9 @@ def scan_files(source_dir, source_type):
                         print(f"Skipping non-text file: {file_path}")
                         continue
                     
-                    # Check if processing takes too long (12 minutes = 720 seconds)
+                    # Check if processing takes too long (3 minutes = 180 seconds)
                     if time.time() - file_start_time > 180:
-                        print(f"Skipping {file_path} due to 12-minute timeout")
+                        print(f"Skipping {file_path} due to 3-minute timeout")
                         continue
                     
                     patterns_to_apply = public_patterns if source_type == 'public' else {
@@ -241,7 +249,7 @@ def scan_files(source_dir, source_type):
                             continue
                         if pattern_name in ["heroku", "aws_s3", "google_storage", "digitalocean_spaces", "wasabi", "backblaze", "gitlab_pages", "surge_sh", "vercel", "netlify", "firebase"]:
                             subdir = "cloud"
-                        elif pattern_name in ["github_repos", "npm_github_urls", "github_pages_current", "github_pages_deprecated"]:
+                        elif pattern_name in ["github_repos", "npm_github_urls", "github_pages_current"]:
                             subdir = "github"
                         elif pattern_name in ["npm", "pypi", "docker", "rubygems", "nuget", "go_modules", "composer"]:
                             subdir = "pkgs"
@@ -262,12 +270,12 @@ def scan_files(source_dir, source_type):
                                 if pattern_name == "github_pages_current":
                                     # Normalize to github.com/username and write to github_repos.txt
                                     normalized = normalize_github_url(original_match)
-                                    if normalized.startswith("github.com/") and normalized not in seen_outputs[output_file]:
+                                    if normalized and normalized.startswith("github.com/") and normalized not in seen_outputs[output_file]:
                                         seen_outputs[output_file].add(normalized)
                                         out_file.write(f"{normalized}\n")
-                                elif pattern_name in ["github_repos", "npm_github_urls", "github_pages_deprecated"]:
+                                elif pattern_name in ["github_repos", "npm_github_urls"]:
                                     if isinstance(match, tuple):
-                                        username = match[0] if len(match) > 0 else None
+                                        username = match[0].split('/')[0] if len(match) > 0 and '/' in match[0] else None
                                         if username:
                                             output_str = f"github.com/{username}"
                                         else:
@@ -284,7 +292,7 @@ def scan_files(source_dir, source_type):
                                         out_file.write(f"{output_str}\n")
                                 else:
                                     normalized = normalize_url(original_match)
-                                    if normalized not in seen_outputs[output_file]:
+                                    if normalized and normalized not in seen_outputs[output_file]:
                                         seen_outputs[output_file].add(normalized)
                                         out_file.write(f"{normalized}\n")
                                 
@@ -292,6 +300,45 @@ def scan_files(source_dir, source_type):
                                 hist_file.write(f"{source_type}/{repo_name}:{relative_path}:{pattern_name}:{original_match}\n")
                 except Exception as e:
                     err_file.write(f"Error reading {file_path}: {e}\n")
+
+# --- Post-Process urls.txt to Move GitHub URLs ---
+def post_process_urls():
+    urls_file = os.path.join(output_dirs['public'], 'urls', 'generic_urls.txt')
+    github_repos_file = os.path.join(output_dirs['public'], 'github', 'github_repos.txt')
+    temp_urls_file = os.path.join(output_dirs['public'], 'urls', 'temp_urls.txt')
+    
+    if not os.path.exists(urls_file):
+        return
+    
+    github_urls = set()
+    non_github_urls = []
+    
+    # Read urls.txt and filter GitHub-related URLs
+    with open(urls_file, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            url = line.strip()
+            normalized = normalize_github_url(url)
+            if normalized and normalized.startswith("github.com/"):
+                github_urls.add(normalized)
+            elif url:
+                non_github_urls.append(url)
+    
+    # Append GitHub URLs to github_repos.txt
+    if github_urls:
+        os.makedirs(os.path.dirname(github_repos_file), exist_ok=True)
+        with open(github_repos_file, 'a', encoding='utf-8') as f:
+            for url in sorted(github_urls):
+                if url not in seen_outputs[github_repos_file]:
+                    seen_outputs[github_repos_file].add(url)
+                    f.write(f"{url}\n")
+    
+    # Rewrite urls.txt with non-GitHub URLs
+    with open(temp_urls_file, 'w', encoding='utf-8') as f:
+        for url in non_github_urls:
+            f.write(f"{url}\n")
+    
+    # Replace original urls.txt with temp file
+    os.replace(temp_urls_file, urls_file)
 
 # --- Main Execution ---
 for output_dir in output_dirs.values():
@@ -310,6 +357,9 @@ if os.path.exists(public_dir):
     scan_files(public_dir, 'public')
 if os.path.exists(archived_dir):
     scan_files(archived_dir, 'archived')
+
+# Run post-processing to clean up urls.txt
+post_process_urls()
 
 print("Scanning complete!")
 print(f"Results in: {', '.join([os.path.join(output_dir, subdir) for output_dir in output_dirs.values() for subdir in subdirs if os.path.exists(os.path.join(output_dir, subdir))])}")
