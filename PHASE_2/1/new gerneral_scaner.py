@@ -87,7 +87,7 @@ def is_valid_secret(pattern_name, secret):
     }
     if any(fp in secret for fp in false_positives):
         return False
-    return true
+    return True
 
 # --- URL Filtering Function ---
 def is_valid_url(url):
@@ -199,7 +199,7 @@ def scan_files(source_dir, source_type):
                 file_path = os.path.join(root, file)
                 relative_path = os.path.relpath(file_path, source_dir)
                 
-                # Skip only binary files based on extension
+                # Skip based on extension
                 if os.path.splitext(file)[1].lower() in SKIPPED_EXTS:
                     continue
                 
@@ -209,6 +209,7 @@ def scan_files(source_dir, source_type):
                     elapsed = time.time() - start_time
                     print(f"Processed {processed_files} files in {elapsed:.2f} seconds")
                 
+                file_start_time = time.time()
                 try:
                     # Check if file is text-readable before processing
                     with open(file_path, 'rb') as f:
@@ -222,6 +223,11 @@ def scan_files(source_dir, source_type):
                                 content += chunk
                     except UnicodeDecodeError:
                         print(f"Skipping non-text file: {file_path}")
+                        continue
+                    
+                    # Check if processing takes too long (12 minutes = 720 seconds)
+                    if time.time() - file_start_time > 180:
+                        print(f"Skipping {file_path} due to 12-minute timeout")
                         continue
                     
                     patterns_to_apply = public_patterns if source_type == 'public' else {
